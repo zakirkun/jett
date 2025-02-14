@@ -1,6 +1,153 @@
 # Jett ORM
 
-A powerful and flexible PHP ORM with advanced features for modern web applications.
+Jett ORM adalah sistem Object-Relational Mapping (ORM) modern untuk PHP yang dirancang untuk memberikan pengalaman development yang powerful dan fleksibel. Dengan fokus pada performa, skalabilitas, dan kemudahan penggunaan, Jett ORM menyediakan fitur-fitur canggih untuk membangun aplikasi modern.
+
+## Keunggulan Utama
+- **High Performance**: Connection pooling, query caching, dan optimasi otomatis
+- **Robust & Reliable**: Transaction management yang kuat dengan deadlock handling
+- **Flexible**: Query builder yang powerful dengan dukungan nested queries
+- **Scalable**: Distributed caching dan event system yang mendukung aplikasi skala besar
+- **Developer Friendly**: CLI tools lengkap untuk development dan maintenance
+- **Maintainable**: Query analyzer dan performance monitoring built-in
+
+## Table of Contents
+1. [Installation](#installation)
+   - [Requirements](#requirements)
+   - [Quick Start](#quick-start)
+   - [Configuration](#configuration)
+2. [Features](#features)
+   - [Advanced Query Builder](#1-advanced-query-builder)
+   - [Connection Management & Transaction](#2-connection-management--transaction)
+   - [Query Analysis and Performance](#3-query-analysis-and-performance)
+   - [Schema Management](#4-schema-management)
+   - [Distributed Cache](#5-distributed-cache)
+   - [Event System](#6-event-system)
+   - [CLI Tools](#7-cli-tools)
+3. [Best Practices](#best-practices)
+4. [Contributing](#contributing)
+5. [License](#license)
+
+## Installation
+
+### Requirements
+- PHP >= 8.0
+- PDO PHP Extension
+- Redis PHP Extension (untuk distributed caching)
+- MySQL/MariaDB 5.7+ atau PostgreSQL 9.6+
+
+### Quick Start
+
+1. Install via Composer:
+```bash
+composer require zakirkun/jett
+```
+
+2. Buat file konfigurasi database:
+```bash
+mkdir config
+touch config/database.php
+```
+
+3. Setup basic configuration:
+```php
+// config/database.php
+return [
+    'default' => 'mysql',
+    'connections' => [
+        'mysql' => [
+            'driver' => 'mysql',
+            'host' => 'localhost',
+            'database' => 'your_database',
+            'username' => 'your_username',
+            'password' => 'your_password',
+        ],
+    ],
+];
+```
+
+4. Inisialisasi database:
+```bash
+./jett migrate
+```
+
+### Configuration
+
+#### 1. Database Connection
+```php
+return [
+    'default' => 'mysql',
+    'connections' => [
+        'mysql' => [
+            'driver' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'database' => 'your_database',
+            'username' => 'your_username',
+            'password' => 'your_password',
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+        'pgsql' => [
+            'driver' => 'pgsql',
+            'host' => 'localhost',
+            'port' => 5432,
+            'database' => 'your_database',
+            'username' => 'your_username',
+            'password' => 'your_password',
+            'charset' => 'utf8',
+            'schema' => 'public',
+        ],
+    ],
+];
+```
+
+#### 2. Connection Pool
+```php
+return [
+    'pool' => [
+        'min_connections' => 5,
+        'max_connections' => 20,
+        'idle_timeout' => 300,
+        'retry_interval' => 100,
+        'max_retries' => 3
+    ],
+];
+```
+
+#### 3. Cache Configuration
+```php
+return [
+    'cache' => [
+        'driver' => 'redis',
+        'host' => '127.0.0.1',
+        'port' => 6379,
+        'password' => null,
+        'prefix' => 'jett:',
+        'database' => 0,
+    ],
+];
+```
+
+#### 4. Event System
+```php
+return [
+    'events' => [
+        'listeners' => [
+            'user.created' => [
+                SendWelcomeEmail::class,
+                NotifyAdministrator::class,
+            ],
+        ],
+        'subscribers' => [
+            UserEventSubscriber::class,
+            OrderEventSubscriber::class,
+        ],
+    ],
+];
+```
 
 ## Features
 
@@ -291,52 +438,6 @@ EventManager::dispatch('user.created', [$user]);
 ./jett schema show users
 ./jett schema compare users users_backup
 ./jett schema export schema.json
-```
-
-## Installation
-
-```bash
-composer require zakirkun/jett
-```
-
-## Configuration
-
-Create a configuration file `config/database.php`:
-
-```php
-return [
-    'default' => 'mysql',
-    
-    'connections' => [
-        'mysql' => [
-            'driver' => 'mysql',
-            'host' => 'localhost',
-            'port' => 3306,
-            'database' => 'your_database',
-            'username' => 'your_username',
-            'password' => 'your_password',
-            'charset' => 'utf8mb4',
-            'collation' => 'utf8mb4_unicode_ci',
-            'prefix' => '',
-            'strict' => true,
-            'engine' => null,
-        ],
-    ],
-    
-    'pool' => [
-        'min_connections' => 5,
-        'max_connections' => 20,
-        'idle_timeout' => 300
-    ],
-    
-    'cache' => [
-        'driver' => 'redis',
-        'host' => '127.0.0.1',
-        'port' => 6379,
-        'password' => null,
-        'prefix' => 'jett:'
-    ]
-];
 ```
 
 ## Best Practices
