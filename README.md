@@ -1,6 +1,6 @@
 # Jett ORM
 
-Jett adalah ORM (Object-Relational Mapping) sederhana untuk PHP yang memungkinkan Anda berinteraksi dengan database menggunakan objek PHP.
+Jett adalah ORM (Object-Relational Mapping) sederhana untuk PHP yang memungkinkan Anda berinteraksi dengan database menggunakan objek PHP. ORM ini menyediakan fitur-fitur lengkap untuk memudahkan pengembangan aplikasi modern.
 
 ## Instalasi
 
@@ -27,63 +27,235 @@ $config = [
 Jett::configure($config);
 ```
 
-## Penggunaan
+## Fitur Utama
 
-### Membuat Model
-
-```php
-use Zakirkun\Jett\Models\Model;
-
-class User extends Model
-{
-    protected string $table = 'users';
-    protected array $fillable = ['name', 'email', 'password'];
-}
-```
-
-### Operasi Dasar
+### 1. Query Builder yang Powerful
 
 ```php
-// Mengambil semua data
-$users = User::all();
-
-// Mencari berdasarkan ID
-$user = User::find(1);
-
-// Query Builder
-$activeUsers = User::query()
+// Basic Queries
+$users = User::query()
     ->where('status', '=', 'active')
     ->orderBy('created_at', 'DESC')
     ->limit(10)
     ->get();
 
-// Membuat data baru
-$user = new User([
-    'name' => 'John Doe',
-    'email' => 'john@example.com',
-    'password' => 'secret'
-]);
-$user->save();
+// Joins
+$posts = Post::query()
+    ->select(['posts.*', 'users.name as author'])
+    ->join('users', 'posts.user_id', '=', 'users.id')
+    ->where('posts.status', '=', 'published')
+    ->get();
 
-// Update data
-$user = User::find(1);
-$user->name = 'Jane Doe';
-$user->save();
-
-// Hapus data
-$user = User::find(1);
-$user->delete();
+// Aggregates
+$totalUsers = User::query()->count();
+$averageAge = User::query()->avg('age');
+$maxSalary = Employee::query()->max('salary');
 ```
 
-## Fitur
+### 2. Bulk Operations
 
-- Koneksi database menggunakan PDO
-- Query Builder
-- Model CRUD operations
-- Method chaining untuk query
-- Fillable attributes untuk keamanan mass assignment
-- Auto-increment primary key handling
+```php
+// Bulk Insert
+User::query()->insert([
+    ['name' => 'John', 'email' => 'john@example.com'],
+    ['name' => 'Jane', 'email' => 'jane@example.com']
+]);
+
+// Bulk Update
+User::query()->bulkUpdate([
+    ['id' => 1, 'status' => 'active'],
+    ['id' => 2, 'status' => 'inactive']
+]);
+
+// Bulk Delete
+User::query()->bulkDelete([1, 2, 3]);
+
+// Upsert
+User::query()->upsert(
+    ['email' => 'john@example.com', 'name' => 'John'],
+    ['email'], // unique by
+    ['name']   // update columns
+);
+```
+
+### 3. Event System
+
+```php
+use Zakirkun\Jett\Events\Event;
+
+// Register event listener
+Event::listen('user.created', function($user) {
+    // Send welcome email
+});
+
+// Dispatch event
+Event::dispatch('user.created', ['user' => $user]);
+```
+
+### 4. Validation
+
+```php
+use Zakirkun\Jett\Validation\Validator;
+
+class User extends Model
+{
+    protected array $rules = [
+        'name' => 'required|min:3',
+        'email' => 'required|email|unique:users',
+        'age' => 'integer|min:18'
+    ];
+
+    public function validate(): bool
+    {
+        $validator = new Validator($this->attributes, $this->rules);
+        return $validator->validate();
+    }
+}
+```
+
+### 5. Caching
+
+```php
+use Zakirkun\Jett\Cache\Cache;
+
+// Basic caching
+Cache::set('key', 'value', 3600); // Cache for 1 hour
+$value = Cache::get('key', 'default');
+
+// Tagged cache
+Cache::tags(['users', 'api'])->set('user:1', $user, 3600);
+Cache::tags(['users'])->flush(); // Flush all users cache
+
+// Remember pattern
+$value = Cache::remember('key', 3600, function() {
+    return expensive_operation();
+});
+```
+
+### 6. Security Features
+
+```php
+use Zakirkun\Jett\Security\Security;
+
+// XSS Protection
+$safeHtml = Security::sanitize($userInput);
+
+// Password Hashing
+$hash = Security::hashPassword($password);
+if (Security::verifyPassword($password, $hash)) {
+    // Password matches
+}
+
+// Rate Limiting
+if (Security::rateLimit('api:' . $userId, 60, 1)) {
+    // Process request
+} else {
+    // Too many requests
+}
+
+// CSRF Protection
+$token = Security::generateToken();
+if (Security::verifyToken($userToken, $storedToken)) {
+    // Token valid
+}
+```
+
+### 7. Testing
+
+```php
+use Zakirkun\Jett\Testing\TestCase;
+
+class UserTest extends TestCase
+{
+    public function testCreateUser()
+    {
+        $user = User::factory()->create([
+            'name' => 'Test User'
+        ]);
+
+        $this->assertModelExists($user);
+        $this->assertDatabaseHas('users', [
+            'name' => 'Test User'
+        ]);
+    }
+}
+```
+
+### 8. Model Factories
+
+```php
+use Zakirkun\Jett\Testing\Factory;
+
+class UserFactory extends Factory
+{
+    protected string $model = User::class;
+
+    public function definition(): array
+    {
+        return [
+            'name' => $this->faker->name,
+            'email' => $this->faker->unique()->safeEmail
+        ];
+    }
+
+    public function admin(): self
+    {
+        return $this->state('admin');
+    }
+}
+
+// Usage
+$user = User::factory()->create();
+$admin = User::factory()->admin()->create();
+```
+
+### 9. CLI Commands
+
+```bash
+# Generate model
+php jett make:model User --migration
+
+# Generate migration
+php jett make:migration create_users_table
+```
+
+## Fitur Lainnya
+
+- Transaction support dengan nested transactions
+- Soft deletes
+- Timestamps handling
+- Model relationships (hasOne, hasMany, belongsTo)
+- Query logging dan debugging
+- Connection pooling
+- Database seeding
+- Migration system
+
+## Best Practices
+
+1. **Validasi Data**
+   - Selalu validasi input sebelum menyimpan ke database
+   - Gunakan fitur validasi bawaan
+
+2. **Security**
+   - Gunakan prepared statements (sudah otomatis)
+   - Sanitize semua user input
+   - Implementasi rate limiting untuk API
+   - Gunakan CSRF protection untuk forms
+
+3. **Performance**
+   - Gunakan bulk operations untuk operasi massal
+   - Manfaatkan fitur caching
+   - Optimalkan query dengan select kolom yang diperlukan saja
+
+4. **Testing**
+   - Buat unit test untuk setiap model
+   - Gunakan factories untuk test data
+   - Manfaatkan database transactions dalam testing
 
 ## Kontribusi
 
 Kontribusi selalu diterima. Silakan buat pull request untuk berkontribusi.
+
+## License
+
+MIT License

@@ -4,9 +4,12 @@ namespace Zakirkun\Jett\Models;
 
 use Zakirkun\Jett\Query\Builder;
 use Zakirkun\Jett\Database\Connection;
+use Zakirkun\Jett\Database\Transaction;
 
 abstract class Model
 {
+    use Transaction;
+
     protected string $table;
     protected string $primaryKey = 'id';
     protected array $attributes = [];

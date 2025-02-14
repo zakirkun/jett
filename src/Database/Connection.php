@@ -9,6 +9,7 @@ class Connection
 {
     private static ?PDO $instance = null;
     private static array $config = [];
+    private static int $transactionLevel = 0;
 
     public static function setConfig(array $config): void
     {
@@ -43,5 +44,62 @@ class Connection
         }
 
         return self::$instance;
+    }
+
+    public static function beginTransaction(): bool
+    {
+        $pdo = self::getInstance();
+        
+        if (self::$transactionLevel === 0) {
+            $pdo->beginTransaction();
+        } else {
+            $pdo->exec('SAVEPOINT trans' . self::$transactionLevel);
+        }
+        
+        self::$transactionLevel++;
+        
+        return true;
+    }
+
+    public static function commit(): bool
+    {
+        $pdo = self::getInstance();
+        
+        self::$transactionLevel--;
+        
+        if (self::$transactionLevel === 0) {
+            return $pdo->commit();
+        }
+        
+        return true;
+    }
+
+    public static function rollBack(): bool
+    {
+        $pdo = self::getInstance();
+        
+        if (self::$transactionLevel === 1) {
+            self::$transactionLevel = 0;
+            return $pdo->rollBack();
+        }
+        
+        $pdo->exec('ROLLBACK TO SAVEPOINT trans' . (self::$transactionLevel - 1));
+        self::$transactionLevel--;
+        
+        return true;
+    }
+
+    public static function transaction(callable $callback)
+    {
+        self::beginTransaction();
+        
+        try {
+            $result = $callback();
+            self::commit();
+            return $result;
+        } catch (\Exception $e) {
+            self::rollBack();
+            throw $e;
+        }
     }
 }
