@@ -4,7 +4,7 @@ A powerful and flexible PHP ORM with advanced features for modern web applicatio
 
 ## Features
 
-### 1. Query Builder
+### 1. Advanced Query Builder
 ```php
 // Basic query
 $users = DB::table('users')
@@ -29,48 +29,106 @@ $posts = Post::with(['author', 'comments.user'])
     ->withCount('likes')
     ->having('likes_count', '>', 10)
     ->get();
+
+// Subqueries in select
+$users = DB::table('users')
+    ->select('name')
+    ->selectSub(function($query) {
+        $query->from('posts')
+              ->whereColumn('user_id', 'users.id')
+              ->count();
+    }, 'posts_count')
+    ->get();
+
+// Advanced joins
+$users = DB::table('users')
+    ->leftJoin('posts', function($join) {
+        $join->on('users.id', '=', 'posts.user_id')
+             ->where('posts.published', '=', true);
+    })
+    ->get();
+
+// Aggregate functions
+$stats = DB::table('orders')
+    ->select(
+        DB::raw('DATE(created_at) as date'),
+        DB::raw('SUM(amount) as total_amount'),
+        DB::raw('COUNT(*) as order_count')
+    )
+    ->groupBy('date')
+    ->having('total_amount', '>', 1000)
+    ->get();
 ```
 
-### 2. Connection Management
+### 2. Connection Management & Transaction
 ```php
 // Configure connection pool
 ConnectionPool::configure([
     'min_connections' => 5,
     'max_connections' => 20,
-    'idle_timeout' => 300
+    'idle_timeout' => 300,
+    'retry_interval' => 100,
+    'max_retries' => 3
 ]);
 
-// Get connection from pool
+// Get connection with automatic retry
 $connection = ConnectionPool::getConnection();
 
-// Transaction with automatic retry
+// Transaction with deadlock handling
 TransactionManager::transaction(function() {
     // Your transaction logic here
 }, $retries = 3);
 
-// Nested transactions
-TransactionManager::begin();
+// Nested transactions with savepoints
+TransactionManager::transaction(function() {
+    DB::table('users')->update(['status' => 'processing']);
+    
+    TransactionManager::transaction(function() {
+        DB::table('orders')->insert([/*...*/]);
+        
+        TransactionManager::transaction(function() {
+            DB::table('inventory')->decrement('stock', 1);
+        });
+    });
+});
+
+// Set transaction isolation level
+TransactionManager::setIsolationLevel('REPEATABLE READ');
+
+// Monitor transactions
+$activeTransactions = TransactionManager::monitorTransactions();
+foreach ($activeTransactions as $trx) {
+    echo "Transaction ID: {$trx['trx_id']}\n";
+    echo "State: {$trx['trx_state']}\n";
+    echo "Started: {$trx['trx_started']}\n";
+}
+
+// Transaction with custom error handling
 try {
-    // First operation
     TransactionManager::begin();
-    try {
-        // Nested operation
-        TransactionManager::commit();
-    } catch (Exception $e) {
-        TransactionManager::rollback();
-        throw $e;
-    }
+    
+    // Your operations here
+    
     TransactionManager::commit();
+} catch (DeadlockException $e) {
+    TransactionManager::rollback();
+    // Retry logic
 } catch (Exception $e) {
     TransactionManager::rollback();
     throw $e;
 }
 ```
 
-### 3. Query Analysis and Optimization
+### 3. Query Analysis and Performance
 ```php
 // Start query analysis
 QueryAnalyzer::startQuery($sql, $bindings);
+
+// Get query execution plan
+$plan = QueryAnalyzer::explainQuery(
+    'SELECT * FROM users WHERE email = ?', 
+    ['john@example.com']
+);
 
 // Get query statistics
 $stats = QueryAnalyzer::getStatistics();
@@ -78,10 +136,50 @@ foreach ($stats as $query => $info) {
     echo "Query: {$query}\n";
     echo "Execution Time: {$info['time']}ms\n";
     echo "Rows Affected: {$info['rows']}\n";
+    echo "Index Used: {$info['index']}\n";
+    echo "Memory Usage: {$info['memory']}\n";
 }
 
-// Get slow queries
+// Get slow queries with context
 $slowQueries = QueryAnalyzer::getSlowQueries(1000); // queries taking > 1000ms
+foreach ($slowQueries as $query) {
+    echo "Query: {$query['sql']}\n";
+    echo "Parameters: " . json_encode($query['bindings']) . "\n";
+    echo "Duration: {$query['duration']}ms\n";
+    echo "Stack Trace: {$query['trace']}\n";
+}
+
+// Query optimization suggestions
+$suggestions = QueryAnalyzer::analyzeTables(['users', 'posts']);
+foreach ($suggestions as $table => $tips) {
+    echo "Table: {$table}\n";
+    foreach ($tips as $tip) {
+        echo "- {$tip}\n";
+    }
+}
+
+// Real-time query monitoring
+QueryAnalyzer::enableMonitoring();
+try {
+    // Your queries here
+} finally {
+    $metrics = QueryAnalyzer::getMetrics();
+    QueryAnalyzer::disableMonitoring();
+}
+
+// Query caching analysis
+$cacheStats = QueryAnalyzer::getCacheStatistics();
+echo "Cache Hit Rate: {$cacheStats['hit_rate']}%\n";
+echo "Cache Miss Rate: {$cacheStats['miss_rate']}%\n";
+echo "Average Cache Duration: {$cacheStats['avg_duration']}ms\n";
+
+// Performance recommendations
+$recommendations = QueryAnalyzer::getRecommendations();
+foreach ($recommendations as $rec) {
+    echo "Priority: {$rec['priority']}\n";
+    echo "Issue: {$rec['issue']}\n";
+    echo "Solution: {$rec['solution']}\n";
+}
 ```
 
 ### 4. Schema Management
