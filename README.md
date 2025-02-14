@@ -1,303 +1,277 @@
 # Jett ORM
 
-Jett adalah ORM (Object-Relational Mapping) sederhana untuk PHP yang memungkinkan Anda berinteraksi dengan database menggunakan objek PHP. ORM ini menyediakan fitur-fitur lengkap untuk memudahkan pengembangan aplikasi modern.
+A powerful and flexible PHP ORM with advanced features for modern web applications.
 
-## Instalasi
+## Features
+
+### 1. Query Builder
+```php
+// Basic query
+$users = DB::table('users')
+    ->where('active', true)
+    ->orderBy('name')
+    ->get();
+
+// Complex nested queries
+$users = DB::table('users')
+    ->where(function($query) {
+        $query->where('role', 'admin')
+              ->orWhere('permissions', 'like', '%manage_users%');
+    })
+    ->whereExists(function($query) {
+        $query->from('posts')
+              ->whereColumn('posts.user_id', 'users.id');
+    })
+    ->get();
+
+// Advanced relationships
+$posts = Post::with(['author', 'comments.user'])
+    ->withCount('likes')
+    ->having('likes_count', '>', 10)
+    ->get();
+```
+
+### 2. Connection Management
+```php
+// Configure connection pool
+ConnectionPool::configure([
+    'min_connections' => 5,
+    'max_connections' => 20,
+    'idle_timeout' => 300
+]);
+
+// Get connection from pool
+$connection = ConnectionPool::getConnection();
+
+// Transaction with automatic retry
+TransactionManager::transaction(function() {
+    // Your transaction logic here
+}, $retries = 3);
+
+// Nested transactions
+TransactionManager::begin();
+try {
+    // First operation
+    TransactionManager::begin();
+    try {
+        // Nested operation
+        TransactionManager::commit();
+    } catch (Exception $e) {
+        TransactionManager::rollback();
+        throw $e;
+    }
+    TransactionManager::commit();
+} catch (Exception $e) {
+    TransactionManager::rollback();
+    throw $e;
+}
+```
+
+### 3. Query Analysis and Optimization
+```php
+// Start query analysis
+QueryAnalyzer::startQuery($sql, $bindings);
+
+// Get query statistics
+$stats = QueryAnalyzer::getStatistics();
+foreach ($stats as $query => $info) {
+    echo "Query: {$query}\n";
+    echo "Execution Time: {$info['time']}ms\n";
+    echo "Rows Affected: {$info['rows']}\n";
+}
+
+// Get slow queries
+$slowQueries = QueryAnalyzer::getSlowQueries(1000); // queries taking > 1000ms
+```
+
+### 4. Schema Management
+```php
+// Create table
+$schema = new SchemaManager();
+$schema->createTable('users', [
+    'id' => ['type' => 'INT', 'auto_increment' => true],
+    'name' => ['type' => 'VARCHAR', 'length' => 255],
+    'email' => ['type' => 'VARCHAR', 'length' => 255, 'unique' => true],
+    'created_at' => ['type' => 'TIMESTAMP', 'default' => 'CURRENT_TIMESTAMP']
+]);
+
+// Add foreign key
+$schema->addForeignKey('posts', 'user_id', 'users', 'id', [
+    'on_delete' => 'CASCADE',
+    'on_update' => 'CASCADE'
+]);
+
+// Compare schemas
+$differences = $schema->compareSchema('users', 'users_backup');
+```
+
+### 5. Distributed Cache
+```php
+// Configure Redis cache
+DistributedCache::configure([
+    'host' => '127.0.0.1',
+    'port' => 6379,
+    'prefix' => 'myapp:'
+]);
+
+// Basic cache operations
+DistributedCache::set('user:1', $userData, 3600); // 1 hour TTL
+$user = DistributedCache::get('user:1');
+
+// Cache with tags
+DistributedCache::tags(['users', 'active'])
+    ->set('user:1', $userData, 3600);
+
+// Atomic operations
+$visits = DistributedCache::increment('page:visits');
+
+// Cache with callback
+$user = DistributedCache::remember('user:1', 3600, function() {
+    return User::find(1);
+});
+```
+
+### 6. Event System
+```php
+// Register event listener
+EventManager::listen('user.created', function($user) {
+    // Handle user created event
+});
+
+// Register event subscriber
+class UserEventSubscriber extends Subscriber
+{
+    public function subscribe(): void
+    {
+        $this->listen('user.created', [$this, 'onUserCreated']);
+        $this->listen('user.updated', [$this, 'onUserUpdated']);
+    }
+
+    public function onUserCreated($user): void
+    {
+        // Handle user created
+    }
+
+    public function onUserUpdated($user): void
+    {
+        // Handle user updated
+    }
+}
+
+EventManager::subscribe(UserEventSubscriber::class);
+
+// Dispatch event
+EventManager::dispatch('user.created', [$user]);
+```
+
+### 7. CLI Tools
+```bash
+# Database migrations
+./jett migrate make create_users_table
+./jett migrate
+./jett migrate rollback
+./jett migrate reset
+./jett migrate status
+
+# Database seeding
+./jett db:seed make UserSeeder
+./jett db:seed
+./jett db:seed run UserSeeder
+
+# Cache management
+./jett cache clear
+./jett cache list
+./jett cache stats
+
+# Database management
+./jett db backup
+./jett db restore backup.sql
+./jett db optimize
+./jett db status
+
+# Schema management
+./jett schema show users
+./jett schema compare users users_backup
+./jett schema export schema.json
+```
+
+## Installation
 
 ```bash
 composer require zakirkun/jett
 ```
 
-## Konfigurasi
+## Configuration
+
+Create a configuration file `config/database.php`:
 
 ```php
-use Zakirkun\Jett\Jett;
-
-// Konfigurasi database
-$config = [
-    'driver' => 'mysql',
-    'host' => 'localhost',
-    'port' => '3306',
-    'database' => 'nama_database',
-    'username' => 'root',
-    'password' => ''
+return [
+    'default' => 'mysql',
+    
+    'connections' => [
+        'mysql' => [
+            'driver' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'database' => 'your_database',
+            'username' => 'your_username',
+            'password' => 'your_password',
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+    ],
+    
+    'pool' => [
+        'min_connections' => 5,
+        'max_connections' => 20,
+        'idle_timeout' => 300
+    ],
+    
+    'cache' => [
+        'driver' => 'redis',
+        'host' => '127.0.0.1',
+        'port' => 6379,
+        'password' => null,
+        'prefix' => 'jett:'
+    ]
 ];
-
-// Inisialisasi Jett
-Jett::configure($config);
 ```
-
-## Fitur Utama
-
-### 1. Query Builder yang Powerful
-
-```php
-// Basic Queries
-$users = User::query()
-    ->where('status', '=', 'active')
-    ->orderBy('created_at', 'DESC')
-    ->limit(10)
-    ->get();
-
-// Nested Queries
-$users = User::query()
-    ->where('status', 'active')
-    ->where(function($query) {
-        $query->where('age', '>=', 18)
-              ->orWhere('has_parental_consent', true);
-    })
-    ->get();
-
-// Complex Nested Conditions
-$posts = Post::query()
-    ->where(function($query) {
-        $query->where('status', 'published')
-              ->where(function($q) {
-                  $q->where('author_id', 1)
-                    ->orWhere('is_featured', true);
-              });
-    })
-    ->orWhere(function($query) {
-        $query->where('user_id', auth()->id())
-              ->where('status', 'draft');
-    })
-    ->get();
-
-// Advanced Where Clauses
-$users = User::query()
-    ->whereIn('id', [1, 2, 3])
-    ->whereNotIn('status', ['banned', 'inactive'])
-    ->whereBetween('age', [18, 65])
-    ->whereNull('deleted_at')
-    ->whereExists(function($query) {
-        $query->select('id')
-              ->from('posts')
-              ->whereColumn('posts.user_id', 'users.id');
-    })
-    ->get();
-
-// Raw Queries
-$users = User::query()
-    ->whereRaw('YEAR(birthday) = ?', [1990])
-    ->get();
-
-// Joins
-$posts = Post::query()
-    ->select(['posts.*', 'users.name as author'])
-    ->join('users', 'posts.user_id', '=', 'users.id')
-    ->where('posts.status', '=', 'published')
-    ->get();
-
-// Aggregates
-$totalUsers = User::query()->count();
-$averageAge = User::query()->avg('age');
-$maxSalary = Employee::query()->max('salary');
-```
-
-### 2. Bulk Operations
-
-```php
-// Bulk Insert
-User::query()->insert([
-    ['name' => 'John', 'email' => 'john@example.com'],
-    ['name' => 'Jane', 'email' => 'jane@example.com']
-]);
-
-// Bulk Update
-User::query()->bulkUpdate([
-    ['id' => 1, 'status' => 'active'],
-    ['id' => 2, 'status' => 'inactive']
-]);
-
-// Bulk Delete
-User::query()->bulkDelete([1, 2, 3]);
-
-// Upsert
-User::query()->upsert(
-    ['email' => 'john@example.com', 'name' => 'John'],
-    ['email'], // unique by
-    ['name']   // update columns
-);
-```
-
-### 3. Event System
-
-```php
-use Zakirkun\Jett\Events\Event;
-
-// Register event listener
-Event::listen('user.created', function($user) {
-    // Send welcome email
-});
-
-// Dispatch event
-Event::dispatch('user.created', ['user' => $user]);
-```
-
-### 4. Validation
-
-```php
-use Zakirkun\Jett\Validation\Validator;
-
-class User extends Model
-{
-    protected array $rules = [
-        'name' => 'required|min:3',
-        'email' => 'required|email|unique:users',
-        'age' => 'integer|min:18'
-    ];
-
-    public function validate(): bool
-    {
-        $validator = new Validator($this->attributes, $this->rules);
-        return $validator->validate();
-    }
-}
-```
-
-### 5. Caching
-
-```php
-use Zakirkun\Jett\Cache\Cache;
-
-// Basic caching
-Cache::set('key', 'value', 3600); // Cache for 1 hour
-$value = Cache::get('key', 'default');
-
-// Tagged cache
-Cache::tags(['users', 'api'])->set('user:1', $user, 3600);
-Cache::tags(['users'])->flush(); // Flush all users cache
-
-// Remember pattern
-$value = Cache::remember('key', 3600, function() {
-    return expensive_operation();
-});
-```
-
-### 6. Security Features
-
-```php
-use Zakirkun\Jett\Security\Security;
-
-// XSS Protection
-$safeHtml = Security::sanitize($userInput);
-
-// Password Hashing
-$hash = Security::hashPassword($password);
-if (Security::verifyPassword($password, $hash)) {
-    // Password matches
-}
-
-// Rate Limiting
-if (Security::rateLimit('api:' . $userId, 60, 1)) {
-    // Process request
-} else {
-    // Too many requests
-}
-
-// CSRF Protection
-$token = Security::generateToken();
-if (Security::verifyToken($userToken, $storedToken)) {
-    // Token valid
-}
-```
-
-### 7. Testing
-
-```php
-use Zakirkun\Jett\Testing\TestCase;
-
-class UserTest extends TestCase
-{
-    public function testCreateUser()
-    {
-        $user = User::factory()->create([
-            'name' => 'Test User'
-        ]);
-
-        $this->assertModelExists($user);
-        $this->assertDatabaseHas('users', [
-            'name' => 'Test User'
-        ]);
-    }
-}
-```
-
-### 8. Model Factories
-
-```php
-use Zakirkun\Jett\Testing\Factory;
-
-class UserFactory extends Factory
-{
-    protected string $model = User::class;
-
-    public function definition(): array
-    {
-        return [
-            'name' => $this->faker->name,
-            'email' => $this->faker->unique()->safeEmail
-        ];
-    }
-
-    public function admin(): self
-    {
-        return $this->state('admin');
-    }
-}
-
-// Usage
-$user = User::factory()->create();
-$admin = User::factory()->admin()->create();
-```
-
-### 9. CLI Commands
-
-```bash
-# Generate model
-php jett make:model User --migration
-
-# Generate migration
-php jett make:migration create_users_table
-```
-
-## Fitur Lainnya
-
-- Transaction support dengan nested transactions
-- Soft deletes
-- Timestamps handling
-- Model relationships (hasOne, hasMany, belongsTo)
-- Query logging dan debugging
-- Connection pooling
-- Database seeding
-- Migration system
 
 ## Best Practices
 
-1. **Validasi Data**
-   - Selalu validasi input sebelum menyimpan ke database
-   - Gunakan fitur validasi bawaan
+1. **Connection Management**
+   - Use connection pooling for better performance
+   - Always use transactions for data consistency
+   - Set appropriate pool sizes based on your application needs
 
-2. **Security**
-   - Gunakan prepared statements (sudah otomatis)
-   - Sanitize semua user input
-   - Implementasi rate limiting untuk API
-   - Gunakan CSRF protection untuk forms
+2. **Query Optimization**
+   - Use the QueryAnalyzer to identify slow queries
+   - Implement proper indexes based on your query patterns
+   - Use eager loading to prevent N+1 problems
 
-3. **Performance**
-   - Gunakan bulk operations untuk operasi massal
-   - Manfaatkan fitur caching
-   - Optimalkan query dengan select kolom yang diperlukan saja
+3. **Caching Strategy**
+   - Use tagged cache for easier cache management
+   - Implement cache versioning for cache invalidation
+   - Set appropriate TTLs for different types of data
 
-4. **Testing**
-   - Buat unit test untuk setiap model
-   - Gunakan factories untuk test data
-   - Manfaatkan database transactions dalam testing
+4. **Event Handling**
+   - Keep event listeners focused and lightweight
+   - Use event subscribers for related events
+   - Implement proper error handling in event listeners
 
-## Kontribusi
+5. **Schema Management**
+   - Always use migrations for schema changes
+   - Backup database before major schema changes
+   - Use proper foreign key constraints
 
-Kontribusi selalu diterima. Silakan buat pull request untuk berkontribusi.
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests.
 
 ## License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
