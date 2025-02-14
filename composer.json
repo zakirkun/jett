@@ -1,0 +1,18 @@
+{
+    "name": "zakirkun/jett",
+    "description": "ORM Project",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Zakirkun\\Jett\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Muhammad Zakir Ramadhan",
+            "email": "61570975+zakirkun@users.noreply.github.com"
+        }
+    ],
+    "require": {}
+}
