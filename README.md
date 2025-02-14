@@ -39,6 +39,48 @@ $users = User::query()
     ->limit(10)
     ->get();
 
+// Nested Queries
+$users = User::query()
+    ->where('status', 'active')
+    ->where(function($query) {
+        $query->where('age', '>=', 18)
+              ->orWhere('has_parental_consent', true);
+    })
+    ->get();
+
+// Complex Nested Conditions
+$posts = Post::query()
+    ->where(function($query) {
+        $query->where('status', 'published')
+              ->where(function($q) {
+                  $q->where('author_id', 1)
+                    ->orWhere('is_featured', true);
+              });
+    })
+    ->orWhere(function($query) {
+        $query->where('user_id', auth()->id())
+              ->where('status', 'draft');
+    })
+    ->get();
+
+// Advanced Where Clauses
+$users = User::query()
+    ->whereIn('id', [1, 2, 3])
+    ->whereNotIn('status', ['banned', 'inactive'])
+    ->whereBetween('age', [18, 65])
+    ->whereNull('deleted_at')
+    ->whereExists(function($query) {
+        $query->select('id')
+              ->from('posts')
+              ->whereColumn('posts.user_id', 'users.id');
+    })
+    ->get();
+
+// Raw Queries
+$users = User::query()
+    ->whereRaw('YEAR(birthday) = ?', [1990])
+    ->get();
+
 // Joins
 $posts = Post::query()
     ->select(['posts.*', 'users.name as author'])
